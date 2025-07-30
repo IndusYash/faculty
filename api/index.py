@@ -7,21 +7,28 @@ import numpy as np
 import os
 import json
 
-app = Flask(__name__, template_folder='../static')
+# --- ROBUST PATHING (FIX) ---
+# Get the absolute path of the directory where this script is located
+base_dir = os.path.dirname(os.path.abspath(__file__))
+# Construct absolute paths to the database and data file, assuming they are in the parent directory
+DB_PATH = os.path.join(base_dir, "..", "faculty_db")
+DATA_PATH = os.path.join(base_dir, "..", "faculty_data.json")
+
+# Point Flask to the correct template folder
+app = Flask(__name__, template_folder=os.path.join(base_dir, "..", "static"))
 
 # --- CONFIGURATION ---
-DB_PATH = "faculty_db"
-DATA_PATH = "faculty_data.json"
-MODEL_NAME = "Facenet"
+MODEL_NAME = "Facenet" # Using the smaller model for faster performance
 DETECTOR_BACKEND = "opencv"
 
 # Pre-load faculty data
 try:
     with open(DATA_PATH, 'r') as f:
         faculty_data = json.load(f)
+    print("Successfully loaded faculty_data.json")
 except FileNotFoundError:
     faculty_data = {}
-    print(f"Warning: {DATA_PATH} not found.")
+    print(f"CRITICAL WARNING: {DATA_PATH} not found.")
 
 # --- ROUTES ---
 
