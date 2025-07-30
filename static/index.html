@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Recognition</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 90%; }
+        h1 { color: #333; }
+        video { width: 100%; border-radius: 8px; margin-bottom: 1rem; background-color: #eee; }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #results { margin-top: 1.5rem; text-align: left; background: #f9f9f9; padding: 1rem; border-radius: 8px; min-height: 100px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 1rem auto; display: none; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-card { padding: 10px; border-left: 4px solid #007bff; }
+        .result-card h2 { margin: 0 0 5px 0; color: #007bff; }
+        .result-card p { margin: 3px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Faculty Recognition</h1>
+        <p>Point your camera at a faculty member's photo and click capture.</p>
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <button id="captureBtn">Capture & Recognize</button>
+        <div class="loader" id="loader"></div>
+        <div id="results">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const resultsDiv = document.getElementById('results');
+        const loader = document.getElementById('loader');
+
+        // Access the webcam
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                resultsDiv.innerHTML = `<p style="color: red;">Error: Could not access webcam. Please grant permission and refresh.</p>`;
+            }
+        }
+
+        captureBtn.addEventListener('click', async () => {
+            // Set canvas dimensions and capture frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg');
+
+            // Show loader and disable button
+            loader.style.display = 'block';
+            captureBtn.disabled = true;
+            resultsDiv.innerHTML = '<p>Processing...</p>';
+
+            try {
+                const response = await fetch('/api/recognize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_data: dataUrl })
+                });
+                
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const person = data.data;
+                    resultsDiv.innerHTML = `
+                        <div class="result-card">
+                            <h2>${person.full_name}</h2>
+                            <p><strong>Designation:</strong> ${person.designation}</p>
+                            <p><strong>Department:</strong> ${person.department}</p>
+                        </div>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<p style="color: #d9534f;">${data.message}</p>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.innerHTML = `<p style="color: red;">An unexpected error occurred. Please check the console.</p>`;
+            } finally {
+                // Hide loader and re-enable button
+                loader.style.display = 'none';
+                captureBtn.disabled = false;
+            }
+        });
+
+        startWebcam();
+    </script>
+</body>
+</html>
