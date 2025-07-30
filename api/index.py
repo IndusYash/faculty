@@ -12,7 +12,7 @@ app = Flask(__name__, template_folder='../static')
 # --- CONFIGURATION ---
 DB_PATH = "faculty_db"
 DATA_PATH = "faculty_data.json"
-MODEL_NAME = "VGG-Face"
+MODEL_NAME = "Facenet"
 DETECTOR_BACKEND = "opencv"
 
 # Pre-load faculty data
