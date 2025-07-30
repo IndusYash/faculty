@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Recognition</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; }
-        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 90%; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #f0f2f5; margin: 0; padding: 1rem; box-sizing: border-box; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
         h1 { color: #333; }
-        video { width: 100%; border-radius: 8px; margin-bottom: 1rem; background-color: #eee; }
-        button { background-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
+        video { width: 100%; border-radius: 8px; margin-bottom: 1rem; background-color: #eee; transform: scaleX(-1); } /* Flip video for natural mirror effect */
+        .button-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem; }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background-color 0.3s; }
         button:hover { background-color: #0056b3; }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #switchCamBtn { background-color: #6c757d; display: none; } /* Hide by default */
+        #switchCamBtn:hover { background-color: #5a6268; }
         #results { margin-top: 1.5rem; text-align: left; background: #f9f9f9; padding: 1rem; border-radius: 8px; min-height: 100px; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 1rem auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -26,7 +29,10 @@
         <p>Point your camera at a faculty member's photo and click capture.</p>
         <video id="webcam" autoplay playsinline muted></video>
         <canvas id="canvas" style="display:none;"></canvas>
-        <button id="captureBtn">Capture & Recognize</button>
+        <div class="button-group">
+            <button id="captureBtn">Capture & Recognize</button>
+            <button id="switchCamBtn">Switch Camera</button>
+        </div>
         <div class="loader" id="loader"></div>
         <div id="results">
             <p>Results will appear here...</p>
@@ -37,29 +43,72 @@
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('captureBtn');
+        const switchCamBtn = document.getElementById('switchCamBtn');
         const resultsDiv = document.getElementById('results');
         const loader = document.getElementById('loader');
 
-        // Access the webcam
-        async function startWebcam() {
+        let currentStream;
+        let videoDevices = [];
+        let currentDeviceIndex = 0;
+
+        // Function to start the webcam with a specific camera
+        async function startWebcam(deviceId) {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: {
+                    deviceId: deviceId ? { exact: deviceId } : undefined
+                }
+            };
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
+                currentStream = stream;
             } catch (err) {
                 console.error("Error accessing webcam: ", err);
                 resultsDiv.innerHTML = `<p style="color: red;">Error: Could not access webcam. Please grant permission and refresh.</p>`;
             }
         }
 
+        // Function to get all available cameras
+        async function getCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(device => device.kind === 'videoinput');
+                if (videoDevices.length > 1) {
+                    switchCamBtn.style.display = 'inline-block'; // Show the button if there's more than one camera
+                }
+                if (videoDevices.length > 0) {
+                    startWebcam(videoDevices[currentDeviceIndex].deviceId);
+                } else {
+                    startWebcam(); // Fallback to default camera
+                }
+            } catch (err) {
+                console.error("Error enumerating devices: ", err);
+                startWebcam(); // Fallback if enumeration fails
+            }
+        }
+
+        // Switch camera button logic
+        switchCamBtn.addEventListener('click', () => {
+            if (videoDevices.length > 1) {
+                currentDeviceIndex = (currentDeviceIndex + 1) % videoDevices.length;
+                startWebcam(videoDevices[currentDeviceIndex].deviceId);
+            }
+        });
+
         captureBtn.addEventListener('click', async () => {
-            // Set canvas dimensions and capture frame
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const context = canvas.getContext('2d');
+            // Flip the canvas context horizontally to match the mirrored video feed
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             const dataUrl = canvas.toDataURL('image/jpeg');
 
-            // Show loader and disable button
             loader.style.display = 'block';
             captureBtn.disabled = true;
             resultsDiv.innerHTML = '<p>Processing...</p>';
@@ -89,13 +138,12 @@
                 console.error('Error:', error);
                 resultsDiv.innerHTML = `<p style="color: red;">An unexpected error occurred. Please check the console.</p>`;
             } finally {
-                // Hide loader and re-enable button
                 loader.style.display = 'none';
                 captureBtn.disabled = false;
             }
         });
 
-        startWebcam();
+        getCameras(); // Initialize everything
     </script>
 </body>
 </html>
