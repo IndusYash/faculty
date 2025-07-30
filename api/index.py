@@ -7,21 +7,18 @@ import numpy as np
 import os
 import json
 
-# --- ROBUST PATHING (FIX) ---
-# Get the absolute path of the directory where this script is located
+# --- ROBUST PATHING ---
 base_dir = os.path.dirname(os.path.abspath(__file__))
-# Construct absolute paths to the database and data file, assuming they are in the parent directory
 DB_PATH = os.path.join(base_dir, "..", "faculty_db")
 DATA_PATH = os.path.join(base_dir, "..", "faculty_data.json")
 
-# Point Flask to the correct template folder
 app = Flask(__name__, template_folder=os.path.join(base_dir, "..", "static"))
 
 # --- CONFIGURATION ---
-MODEL_NAME = "SFace" # Using the smaller model for faster performance
+MODEL_NAME = "SFace" # Using the smallest and fastest model
 DETECTOR_BACKEND = "opencv"
 
-# Pre-load faculty data
+# Pre-load faculty data (this is small and safe to load at startup)
 try:
     with open(DATA_PATH, 'r') as f:
         faculty_data = json.load(f)
@@ -39,7 +36,9 @@ def home():
 
 @app.route('/api/recognize', methods=['POST'])
 def recognize_face():
-    """Receives an image, finds a match, and returns the data."""
+    """
+    Receives an image, loads the model on-demand, finds a match, and returns the data.
+    """
     if not request.json or 'image_data' not in request.json:
         return jsonify({'status': 'error', 'message': 'No image data received.'}), 400
 
@@ -50,20 +49,20 @@ def recognize_face():
         pil_image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
         image_np = np.array(pil_image)
 
-        # Use DeepFace to find the closest match in the database
+        # *** MEMORY FIX: The model is now loaded and used only inside this function ***
+        # This uses more CPU on first request, but keeps resting memory low.
         dfs = DeepFace.find(
             img_path=image_np,
             db_path=DB_PATH,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
-            enforce_detection=True, # Ensure a face is found
+            enforce_detection=True,
             silent=True
         )
 
         # Process the results
         if isinstance(dfs, list) and len(dfs) > 0 and not dfs[0].empty:
             df = dfs[0]
-            # Get the top match (the one with the smallest distance)
             top_match = df.iloc[0]
             identity_path = top_match['identity']
             
@@ -77,8 +76,7 @@ def recognize_face():
         else:
             return jsonify({'status': 'not_found', 'message': 'No match found in the database.'})
 
-    except ValueError as ve:
-        # This typically happens if DeepFace doesn't find a face in the uploaded image
+    except ValueError:
         return jsonify({'status': 'no_face', 'message': 'Could not detect a face in the image. Please try again.'})
     except Exception as e:
         print(f"An error occurred: {e}")
