@@ -3,5 +3,5 @@ gunicorn
 deepface
 opencv-python-headless
 Pillow
-numpy
-tf-keras
+numpy==1.23.5
+tensorflow==2.15.0
