@@ -18,7 +18,7 @@ DATA_PATH = os.path.join(base_dir, "..", "faculty_data.json")
 app = Flask(__name__, template_folder=os.path.join(base_dir, "..", "static"))
 
 # --- CONFIGURATION ---
-MODEL_NAME = "Facenet" # Using the smaller model for faster performance
+MODEL_NAME = "SFace" # Using the smaller model for faster performance
 DETECTOR_BACKEND = "opencv"
 
 # Pre-load faculty data
