@@ -1,0 +1,1 @@
+import face_recognition_models; print(face_recognition_models.models_location)

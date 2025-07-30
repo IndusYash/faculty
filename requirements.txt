@@ -1,0 +1,28 @@
+# In a file named requirements.txt
+
+Flask
+gunicorn
+deepface
+opencv-python-headless
+Pillow
+numpy
+tf-keras
+```
+---
+```json
+# In a file named vercel.json
+
+{
+    "builds": [
+        {
+            "src": "api/index.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "api/index.py"
+        }
+    ]
+}
